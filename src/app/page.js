@@ -1,103 +1,248 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import UploadButton from '../components/UploadButton';
+import ImageCanvas from '../components/ImageCanvas';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [boundingBoxes, setBoundingBoxes] = useState([]);
+  const [analysisData, setAnalysisData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  const handleFileSelect = (files) => {
+    if (files.length > 0) {
+      setSelectedImage(files[0]);
+      setBoundingBoxes([]);
+      setAnalysisData(null);
+      setError(null);
+    }
+  };
+
+  const analyzeImage = async () => {
+    if (!selectedImage) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.boundingBoxes) {
+        setBoundingBoxes(data.boundingBoxes);
+        setAnalysisData(data);
+      } else {
+        setError('No bounding boxes returned from API');
+      }
+    } catch (err) {
+      console.error('Error analyzing image:', err);
+      setError(err.message || 'Failed to analyze image');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!hasMounted) return null;
+
+  return (
+    <div className="app-container">
+      <div className="nav-bar">
+        <h1 className="nav-title">WasteSnap - AI Spatial Understanding Demo</h1>
+      </div>
+
+      <div className="page-wrapper">
+        <div className="text-center mb-8">
+          <h2 className="page-title">Gemini AI Spatial Understanding</h2>
+          <p className="page-subtitle">
+            Upload an image to see how Gemini AI understands spatial relationships, object detection, and waste categorization
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        <div className="space-y-8">
+          <div className="upload-section">
+            <h2 className="section-title">Upload Image</h2>
+            <UploadButton onFileSelect={handleFileSelect} selectedImage={selectedImage} />
+
+            {selectedImage && (
+              <div className="image-info">
+                <p>
+                  Selected: {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+                <button
+                  onClick={analyzeImage}
+                  disabled={isLoading}
+                  className="analyze-button"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Analyzing with Gemini AI...
+                    </>
+                  ) : (
+                    'Analyze Image with Gemini AI'
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div className="error-box">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="error-icon" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="error-title">Error</h3>
+                  <div className="error-message">{error}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {analysisData && (
+            <div className="result-section">
+              <h2 className="section-title">Gemini AI Analysis Results</h2>
+
+              {/* Metadata Section */}
+              <div className="metadata-section">
+                <h3 className="result-title">Analysis Metadata</h3>
+                <div className="metadata-grid">
+                  <div className="metadata-item">
+                    <span className="metadata-label">Model:</span>
+                    <span className="metadata-value">{analysisData.metadata.model}</span>
+                  </div>
+                  <div className="metadata-item">
+                    <span className="metadata-label">Processing Time:</span>
+                    <span className="metadata-value">{analysisData.metadata.processingTime}</span>
+                  </div>
+                  <div className="metadata-item">
+                    <span className="metadata-label">Total Objects:</span>
+                    <span className="metadata-value">{analysisData.metadata.totalObjects}</span>
+                  </div>
+                  <div className="metadata-item">
+                    <span className="metadata-label">Confidence:</span>
+                    <span className="metadata-value">{analysisData.metadata.confidence}</span>
+                  </div>
+                </div>
+
+                <div className="spatial-understanding">
+                  <h4 className="spatial-title">Spatial Understanding Features</h4>
+                  <ul className="spatial-features">
+                    <li>✓ {analysisData.metadata.spatialUnderstanding.objectRelationships}</li>
+                    <li>✓ {analysisData.metadata.spatialUnderstanding.depthPerception}</li>
+                    <li>✓ {analysisData.metadata.spatialUnderstanding.contextualUnderstanding}</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Image Canvas */}
+              <ImageCanvas
+                imageFile={selectedImage}
+                boundingBoxes={boundingBoxes}
+                width={800}
+                height={600}
+              />
+
+              {/* Waste Analysis */}
+              <div className="waste-analysis">
+                <h3 className="result-title">Waste Categorization Analysis</h3>
+                <div className="waste-stats">
+                  <div className="waste-stat recyclable">
+                    <span className="waste-label">Recyclable</span>
+                    <span className="waste-count">{analysisData.analysis.recyclable}</span>
+                  </div>
+                  <div className="waste-stat compostable">
+                    <span className="waste-label">Compostable</span>
+                    <span className="waste-count">{analysisData.analysis.compostable}</span>
+                  </div>
+                  <div className="waste-stat landfill">
+                    <span className="waste-label">Landfill</span>
+                    <span className="waste-count">{analysisData.analysis.landfill}</span>
+                  </div>
+                </div>
+
+                <div className="recommendations">
+                  <h4 className="recommendations-title">AI Recommendations</h4>
+                  <ul className="recommendations-list">
+                    {analysisData.analysis.recommendations.map((rec, index) => (
+                      <li key={index} className="recommendation-item">
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Detailed Results */}
+              <div className="detailed-results">
+                <h3 className="result-title">Detailed Object Detection</h3>
+                <div className="results-grid">
+                  {boundingBoxes.map((box, index) => (
+                    <div key={index} className="result-item-detailed">
+                      <div className="result-header">
+                        <span className="result-label-detailed">
+                          {box.label}
+                        </span>
+                        <span className={`result-confidence-detailed ${box.category}`}>
+                          {(box.confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="result-details">
+                        <span className="result-category">{box.category}</span>
+                        <p className="result-description">{box.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
