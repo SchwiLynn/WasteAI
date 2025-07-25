@@ -745,6 +745,8 @@ input:focus-visible {
   background: var(--red-600);
 }
 
+/* Make non-recyclable confidence percentage visible and red */
+
 .result-details {
   display: flex;
   flex-direction: column;

@@ -5,6 +5,11 @@ import UploadButton from '../components/UploadButton';
 import ImageCanvas from '../components/ImageCanvas';
 
 export default function Home() {
+  const categoryTextMap = {
+    recyclable: 'Recyclable',
+    compostable: 'Compostable',
+    non_recyclable: 'Non-Recyclable',
+  };
   const [selectedImage, setSelectedImage] = useState(null);
   const [boundingBoxes, setBoundingBoxes] = useState([]);
   const [analysisData, setAnalysisData] = useState(null);
@@ -199,9 +204,9 @@ export default function Home() {
                     <span className="waste-label">Compostable</span>
                     <span className="waste-count">{analysisData.analysis.compostable}</span>
                   </div>
-                  <div className="waste-stat landfill">
-                    <span className="waste-label">Landfill</span>
-                    <span className="waste-count">{analysisData.analysis.landfill}</span>
+                  <div className="waste-stat non-recyclable">
+                    <span className="waste-label">Non-Recyclable</span>
+                    <span className="waste-count">{analysisData.analysis.non_recyclable}</span>
                   </div>
                 </div>
 
@@ -227,12 +232,9 @@ export default function Home() {
                         <span className="result-label-detailed">
                           {box.label}
                         </span>
-                        <span className={`result-confidence-detailed ${box.category}`}>
-                          {(box.confidence * 100).toFixed(1)}%
-                        </span>
                       </div>
                       <div className="result-details">
-                        <span className="result-category">{box.category}</span>
+                        <span className="result-category">{categoryTextMap[box.category] || box.category}</span>
                         <p className="result-description">{box.description}</p>
                       </div>
                     </div>

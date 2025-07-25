@@ -12,7 +12,7 @@ const ImageCanvas = ({ imageFile, boundingBoxes = [], width = 800, height = 600 
   const categoryColors = {
     recyclable: { border: '#22c55e', background: 'rgba(34, 197, 94, 0.1)', text: '#166534' },
     compostable: { border: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', text: '#92400e' },
-    landfill: { border: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', text: '#991b1b' }
+    non_recyclable: { border: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', text: '#991b1b' }
   };
 
   useEffect(() => {
@@ -108,7 +108,12 @@ const ImageCanvas = ({ imageFile, boundingBoxes = [], width = 800, height = 600 
         ctx.fillText(labelText, canvasX + 4, canvasY - 6);
 
         // Draw category badge
-        const categoryText = category.toUpperCase();
+        const categoryTextMap = {
+          recyclable: 'Recyclable',
+          compostable: 'Compostable',
+          non_recyclable: 'Non-Recyclable',
+        };
+        const categoryText = categoryTextMap[category] || category.toUpperCase();
         ctx.font = 'bold 10px Inter, system-ui, sans-serif';
         const categoryMetrics = ctx.measureText(categoryText);
         const categoryWidth = categoryMetrics.width;
@@ -184,7 +189,8 @@ const ImageCanvas = ({ imageFile, boundingBoxes = [], width = 800, height = 600 
     });
 
     if (clickedBox) {
-      alert(`Spatial Analysis: ${clickedBox.description}\nCategory: ${clickedBox.category}\nConfidence: ${(clickedBox.confidence * 100).toFixed(1)}%`);
+      const categoryText = categoryTextMap[clickedBox.category] || clickedBox.category;
+      alert(`Spatial Analysis: ${clickedBox.description}\nCategory: ${categoryText}\nConfidence: ${(clickedBox.confidence * 100).toFixed(1)}%`);
     }
   };
 
