@@ -1,27 +1,61 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import fetch from 'node-fetch';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export async function POST(request) {
   try {
+    //TIMING LOG
+    console.log('Received request');
+    const timing = { start: Date.now() };
     if (!GEMINI_API_KEY) {
       return NextResponse.json({ error: 'Gemini API key not set' }, { status: 500 });
     }
 
     const formData = await request.formData();
     const image = formData.get('image');
+    const imageURL = formData.get('imageURL');
 
-    if (!image) {
-      return NextResponse.json({ error: 'No image provided' }, { status: 400 });
+    let base64Image, mimeType;
+
+    if (imageURL) {
+      //TIMING LOG
+      const fetchStart = Date.now();
+      // Fetch the image from the URL (Firebase Storage)
+      const imageRes = await fetch(imageURL);
+      //TIMING LOG
+      const fetchEnd = Date.now();
+      console.log('Image fetched from URL in', fetchEnd - fetchStart, 'ms');
+      if (!imageRes.ok) {
+        return NextResponse.json({ error: 'Failed to fetch image from URL' }, { status: 400 });
+      }
+      const arrayBuffer = await imageRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      base64Image = buffer.toString('base64');
+      mimeType = imageRes.headers.get('content-type') || 'image/jpeg';
+    } else if (image) {
+      //TIMING LOG
+      const fileStart = Date.now();
+      // Read image as base64 (file upload)
+      const arrayBuffer = await image.arrayBuffer();
+      //TIMING LOG
+      const fileEnd = Date.now();
+      console.log('Image file read in', fileEnd - fileStart, 'ms');
+      const buffer = Buffer.from(arrayBuffer);
+      base64Image = buffer.toString('base64');
+      mimeType = image.type || 'image/jpeg';
+    } else {
+      return NextResponse.json({ error: 'No image or imageURL provided' }, { status: 400 });
     }
 
-    // Read image as base64
-    const arrayBuffer = await image.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Image = buffer.toString('base64');
-    const mimeType = image.type || 'image/jpeg';
+    if (!base64Image) {
+      return NextResponse.json({ error: 'Failed to process image' }, { status: 500 });
+    }
 
+    //TIMING LOG
+    const beforeGemini = Date.now();
+    console.log('Preparing to call Gemini, elapsed:', beforeGemini - timing.start, 'ms');
     // Prepare Gemini Vision API call
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const prompt = `Detect all objects in this image. Return a JSON array.  
@@ -50,17 +84,21 @@ Each element in the array must describe a single object using the following six 
     ];
 
     // Call Gemini Vision API
-    const startTime = Date.now();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents,
     });
-    const endTime = Date.now();
-    const processingTime = ((endTime - startTime) / 1000).toFixed(2) + 's';
+    //TIMING LOG
+    const afterGemini = Date.now();
+    console.log('Gemini API call took', afterGemini - beforeGemini, 'ms');
+    const processingTime = ((afterGemini - timing.start) / 1000).toFixed(2) + 's';
 
     // Try to parse JSON from the response
     let resultText = response.text;
     let boundingBoxes;
+    //TIMING LOG
+    const beforeParse = Date.now();
+    console.log('Parsing Gemini response, elapsed:', beforeParse - afterGemini, 'ms');
     try {
       // Remove markdown code fencing if present
       if (resultText.startsWith('```json')) {
@@ -190,6 +228,9 @@ Each element in the array must describe a single object using the following six 
       recommendations,
     };
 
+    //TIMING LOG
+    const beforeReturn = Date.now();
+    console.log('Total API processing time:', beforeReturn - timing.start, 'ms');
     return NextResponse.json({
       success: true,
       boundingBoxes: processedBoxes,
