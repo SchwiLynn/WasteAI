@@ -212,7 +212,8 @@ const ImageCanvas = ({ imageFile, boundingBoxes = [], width = 800, height = 600 
           <polyline points="21,15 16,10 5,21" />
         </svg>
         <p>No image selected</p>
-        <p className="text-sm text-gray-400">Upload an image to see Gemini AI's spatial understanding</p>
+        <p className="text-sm text-gray-400">
+          {"Upload an image to see Gemini AI's spatial understanding"}</p>
       </div>
     );
   }
