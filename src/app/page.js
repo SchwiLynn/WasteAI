@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import UploadButton from '../components/UploadButton';
 import ImageCanvas from '../components/ImageCanvas';
+import { saveUploadToHistory, getHistory, clearHistory, hashFile, getResultByHash } from '../lib/historyService';
 
 export default function Home() {
   const categoryTextMap = {
@@ -16,10 +17,54 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasMounted, setHasMounted] = useState(false);
+  const [uploadHistory, setUploadHistory] = useState([]);
 
   useEffect(() => {
     setHasMounted(true);
+    // Fetch upload history on mount
+    setUploadHistory(getHistory());
   }, []);
+
+  // Add a function to re-analyze an image from history
+  const reanalyzeImage = async (imageUrl, geminiResult) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Convert image to base64 for preview/history
+      const toBase64 = file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const newImageUrl = await toBase64(selectedImage);
+
+      // Send image to Gemini API
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.boundingBoxes) {
+        setBoundingBoxes(data.boundingBoxes);
+        setAnalysisData(data);
+        // Save to local history
+        saveUploadToHistory({ imageUrl: newImageUrl, geminiResult: data, timestamp: Date.now() });
+        setUploadHistory(getHistory());
+      } else {
+        setError('No bounding boxes returned from API');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to re-analyze image');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleFileSelect = (files) => {
     if (files.length > 0) {
@@ -32,37 +77,57 @@ export default function Home() {
 
   const analyzeImage = async () => {
     if (!selectedImage) return;
-
+    // Compute hash of the image
+    const hash = await hashFile(selectedImage);
+    // Check for cached result
+    const cached = getResultByHash(hash);
+    if (cached) {
+      setBoundingBoxes(cached.geminiResult.boundingBoxes || []);
+      setAnalysisData(cached.geminiResult);
+      setError(null);
+      // Do NOT show loading spinner for cached results
+      return;
+    }
     setIsLoading(true);
     setError(null);
-
     try {
+      // Convert image to base64 for preview/history
+      const toBase64 = file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const imageUrl = await toBase64(selectedImage);
+      // Send image to Gemini API
       const formData = new FormData();
       formData.append('image', selectedImage);
-
       const response = await fetch('/api/gemini', {
         method: 'POST',
         body: formData,
       });
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       const data = await response.json();
-
       if (data.boundingBoxes) {
         setBoundingBoxes(data.boundingBoxes);
         setAnalysisData(data);
+        // Save to local history with hash
+        saveUploadToHistory({ hash, imageUrl, geminiResult: data, timestamp: Date.now() });
       } else {
         setError('No bounding boxes returned from API');
       }
     } catch (err) {
-      console.error('Error analyzing image:', err);
       setError(err.message || 'Failed to analyze image');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClearHistory = () => {
+    clearHistory();
+    setUploadHistory([]);
   };
 
   if (!hasMounted) return null;
@@ -82,10 +147,10 @@ export default function Home() {
         </div>
 
         <div className="space-y-8">
+          {/* Side-by-side Upload and History */}
           <div className="upload-section">
             <h2 className="section-title">Upload Image</h2>
             <UploadButton onFileSelect={handleFileSelect} selectedImage={selectedImage} />
-
             {selectedImage && (
               <div className="image-info">
                 <p>
@@ -211,7 +276,7 @@ export default function Home() {
                 </div>
 
                 <div className="recommendations">
-                  <h4 className="recommendations-title">AI Recommendations</h4>
+                  <h4 className="recommendations-title">Recommendations</h4>
                   <ul className="recommendations-list">
                     {analysisData.analysis.recommendations.map((rec, index) => (
                       <li key={index} className="recommendation-item">
